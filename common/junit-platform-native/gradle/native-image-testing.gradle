@@ -1,6 +1,7 @@
 import org.gradle.util.GFileUtils
 
 def agentOutput = layout.buildDirectory.dir("agent")
+agentOutput.get().asFile.mkdirs()
 
 ext {
     testIdsDir = layout.buildDirectory.dir("test_ids")
