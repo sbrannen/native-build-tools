@@ -287,7 +287,7 @@ public class NativeImagePlugin implements Plugin<Project> {
                 + VersionInfo.JUNIT_PLATFORM_NATIVE_VERSION);
     }
 
-    private static class CleanupTestIdsDirectory implements Action<Task> {
+    private static final class CleanupTestIdsDirectory implements Action<Task> {
         private final DirectoryProperty directory;
 
         private CleanupTestIdsDirectory(DirectoryProperty directory) {
