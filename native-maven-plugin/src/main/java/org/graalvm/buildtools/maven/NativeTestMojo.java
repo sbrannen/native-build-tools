@@ -74,6 +74,8 @@ import static org.graalvm.buildtools.Utils.NATIVE_TESTS_EXE;
         requiresDependencyCollection = ResolutionScope.TEST)
 public class NativeTestMojo extends AbstractNativeMojo {
 
+    private static final String JUNIT_PLATFORM_UNIQUE_IDS = "junit-platform-unique-ids";
+
     @Parameter(property = "skipTests", defaultValue = "false")
     private boolean skipTests;
 
@@ -108,8 +110,21 @@ public class NativeTestMojo extends AbstractNativeMojo {
 
         logger.debug("Classpath: " + classpath);
         buildImage(classpath, targetFolder);
+        deleteTestIdFiles();
 
         runTests(targetFolder);
+    }
+
+    private void deleteTestIdFiles() throws MojoExecutionException {
+        try {
+            findFiles(Paths.get(project.getBuild().getDirectory()), JUNIT_PLATFORM_UNIQUE_IDS).forEach(testIdFile -> {
+                logger.debug(String.format("Deleting test id file %s", testIdFile));
+                testIdFile.toFile().delete();
+            }
+            );
+        } catch (IOException e) {
+            throw new MojoExecutionException("Unable to delete stale test id files", e);
+        }
     }
 
     private boolean hasTests() {
@@ -198,7 +213,7 @@ public class NativeTestMojo extends AbstractNativeMojo {
         try {
             Path buildDir = Paths.get(project.getBuild().getDirectory());
             // See org.graalvm.junit.platform.UniqueIdTrackingListener.DEFAULT_OUTPUT_FILE_PREFIX
-            return readAllFiles(buildDir, "junit-platform-unique-ids").anyMatch(contents -> !contents.isEmpty());
+            return readAllFiles(buildDir, JUNIT_PLATFORM_UNIQUE_IDS).anyMatch(contents -> !contents.isEmpty());
         } catch (Exception ex) {
             return false;
         }
