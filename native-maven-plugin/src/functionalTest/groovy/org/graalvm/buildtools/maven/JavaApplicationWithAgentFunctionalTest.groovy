@@ -51,7 +51,7 @@ class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctio
         withSample("java-application-with-reflection")
 
         when:
-        mvn '-Pnative', '-Dagent=true', 'test'
+        mvn '-Pnative', '-Dagent=true', '-DagentConfig=test', 'test'
 
         then:
         outputContains """
