@@ -46,12 +46,46 @@ import spock.lang.Unroll
 
 class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctionalTest {
 
+    def "agent is used without custom options"() {
+        given:
+        withSample("java-application-with-reflection")
+
+        when:
+        mvn '-Pnative', '-Dagent=true', 'test'
+
+        then:
+        outputContains """
+[         4 containers found      ]
+[         0 containers skipped    ]
+[         4 containers started    ]
+[         0 containers aborted    ]
+[         4 containers successful ]
+[         0 containers failed     ]
+[         7 tests found           ]
+[         0 tests skipped         ]
+[         7 tests started         ]
+[         0 tests aborted         ]
+[         7 tests successful      ]
+[         0 tests failed          ]
+""".trim()
+
+        and:
+        ['jni', 'proxy', 'reflect', 'resource', 'serialization'].each { name ->
+            assert file("target/native/agent-output/test/${name}-config.json").exists()
+        }
+
+        // If the custom access-filter.json is NOT applied, we should see a warning similar to the following.
+        // Warning: Could not resolve org.apache.maven.surefire.junitplatform.JUnitPlatformProvider for reflection configuration. Reason: java.lang.ClassNotFoundException: org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.
+        and:
+        outputContains 'Warning: Could not resolve org.apache.maven.surefire'
+    }
+
     def "agent is used with custom options"() {
         given:
         withSample("java-application-with-reflection")
 
         when:
-        mvn '-Pnative', '-Dagent=true', '-DagentConfig=test', 'test'
+        mvn '-Pnative', '-Dagent=true', '-DagentOptions=test', 'test'
 
         then:
         outputContains """

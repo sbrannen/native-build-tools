@@ -97,7 +97,7 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
             String target = build.getDirectory();
             String testIdsDir = testIdsDirectory(target);
             withPlugin(build, "native-maven-plugin", nativePlugin -> {
-                String customAgentOptions = hasAgent ? getCustomAgentOptions(nativePlugin, getAgentConfigName(session)) : "";
+                String customAgentOptions = hasAgent ? getCustomAgentOptions(nativePlugin, getAgentOptionsName(session)) : "";
 
                 // Test configuration
                 withPlugin(build, "maven-surefire-plugin", surefirePlugin -> {
@@ -152,9 +152,9 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
         return Boolean.parseBoolean(String.valueOf(systemProperties.getOrDefault("agent", "false")));
     }
 
-    private static String getAgentConfigName(MavenSession session) {
-        String agentConfigName = session.getSystemProperties().getProperty("agentConfig");
-        return agentConfigName != null ? agentConfigName.trim() : null;
+    private static String getAgentOptionsName(MavenSession session) {
+        String agentOptionsName = session.getSystemProperties().getProperty("agentOptions");
+        return agentOptionsName != null ? agentOptionsName.trim() : null;
     }
 
     private static void withPlugin(Build build, String artifactId, Consumer<? super Plugin> consumer) {
@@ -165,44 +165,39 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
                 .ifPresent(consumer);
     }
 
-    private static String getCustomAgentOptions(Plugin plugin, String agentConfigName) {
+    private static String getCustomAgentOptions(Plugin plugin, String agentOptionsName) {
         // This method parses a configuration block with the following structure, searching
-        // for named config groups whose names match the supplied agentConfigName.
+        // for named config groups whose names match the supplied agentOptionsName.
         //
         // <configuration>
-        //     <agentOptions>
-        //         <config name="default">
-        //             <agentOption>experimental-class-loader-support</agentOption>
-        //         </config>
-        //         <config name="test">
-        //             <agentOption>experimental-class-loader-support</agentOption>
-        //             <agentOption>access-filter-file=${basedir}/src/main/resources/access-filter.json</agentOption>
-        //         </config>
+        //     <agentOptions name="default">
+        //         <agentOption>experimental-class-loader-support</agentOption>
+        //     </agentOptions>
+        //     <agentOptions name="test">
+        //         <agentOption>experimental-class-loader-support</agentOption>
+        //         <agentOption>access-filter-file=${basedir}/src/main/resources/access-filter.json</agentOption>
         //     </agentOptions>
         // </configuration>
 
-        // Implementation Note: agentConfigName may be null if not supplied via a
+        // Implementation Note: agentOptionsName may be null if not supplied via a
         // system property, but we process the configuration anyway in order to
-        // validate proper structure (i.e., that each config block has a name).
+        // validate proper structure (i.e., that each agentOptions element has a name).
 
         StringJoiner options = new StringJoiner(",");
         Xpp3Dom configuration = (Xpp3Dom) plugin.getConfiguration();
         if (configuration != null) {
-            Xpp3Dom agentOptionsContainer = configuration.getChild("agentOptions");
-            if (agentOptionsContainer != null) {
-                for (Xpp3Dom config : agentOptionsContainer.getChildren("config")) {
-                    String name = config.getAttribute("name");
-                    if (name == null || name.isEmpty()) {
-                        throw new IllegalStateException("agentOptions -> config element must declare a name attribute");
-                    }
-                    if (name.trim().equals(agentConfigName)) {
-                        for (Xpp3Dom agentOption : config.getChildren("agentOption")) {
-                            String value = agentOption.getValue().trim();
-                            if (value.contains("config-output-dir")) {
-                                throw new IllegalStateException("config-output-dir cannot be supplied as a custom agent option");
-                            }
-                            options.add(value);
+            for (Xpp3Dom agentOptions : configuration.getChildren("agentOptions")) {
+                String name = agentOptions.getAttribute("name");
+                if (name == null || name.isEmpty()) {
+                    throw new IllegalStateException("agentOptions element must declare a name attribute");
+                }
+                if (name.trim().equals(agentOptionsName)) {
+                    for (Xpp3Dom agentOption : agentOptions.getChildren("agentOption")) {
+                        String value = agentOption.getValue().trim();
+                        if (value.contains("config-output-dir")) {
+                            throw new IllegalStateException("config-output-dir cannot be supplied as a custom agent option");
                         }
+                        options.add(value);
                     }
                 }
             }
