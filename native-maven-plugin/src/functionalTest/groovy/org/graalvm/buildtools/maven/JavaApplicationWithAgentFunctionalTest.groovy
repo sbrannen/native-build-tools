@@ -46,7 +46,7 @@ import spock.lang.Unroll
 
 class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctionalTest {
 
-    def "agent is passed"() {
+    def "agent is used with custom options"() {
         given:
         withSample("java-application-with-reflection")
 
@@ -73,10 +73,16 @@ class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctio
         ['jni', 'proxy', 'reflect', 'resource', 'serialization'].each { name ->
             assert file("target/native/agent-output/test/${name}-config.json").exists()
         }
+
+        // If the custom access-filter.json is applied, we should not see any warnings about Surefire types.
+        // The actual warning would be something like:
+        // Warning: Could not resolve org.apache.maven.surefire.junitplatform.JUnitPlatformProvider for reflection configuration. Reason: java.lang.ClassNotFoundException: org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.
+        and:
+        outputDoesNotContain 'Warning: Could not resolve org.apache.maven.surefire'
     }
 
     @Issue("https://github.com/graalvm/native-build-tools/issues/134")
-    @Unroll("generated agent files are added when building native image on Gradle #version with JUnit Platform #junitVersion")
+    @Unroll("generated agent files are added when building native image on Maven #version with JUnit Platform #junitVersion")
     def "generated agent files are used when building native image"() {
         given:
         withSample("java-application-with-reflection")

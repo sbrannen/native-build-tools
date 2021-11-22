@@ -141,6 +141,10 @@
                             <buildArgs>
                                 <buildArg>--no-fallback</buildArg>
                             </buildArgs>
+                            <agentOptions>
+                                <agentOption>experimental-class-loader-support</agentOption>
+                                <agentOption>access-filter-file=${basedir}/src/main/resources/access-filter.json</agentOption>
+                            </agentOptions>
                         </configuration>
                     </plugin>
                 </plugins>
