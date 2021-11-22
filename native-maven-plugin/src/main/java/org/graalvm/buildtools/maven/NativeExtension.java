@@ -187,13 +187,10 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
         Xpp3Dom configuration = (Xpp3Dom) plugin.getConfiguration();
         if (configuration != null) {
             for (Xpp3Dom agentOptions : configuration.getChildren("agentOptions")) {
-                String name = agentOptions.getAttribute("name");
-                if (name == null || name.isEmpty()) {
-                    throw new IllegalStateException("agentOptions element must declare a name attribute");
-                }
-                if (name.trim().equals(agentOptionsName)) {
+                String name = assertNotEmptyAndTrim(agentOptions.getAttribute("name"), "agentOptions element must declare a name attribute");
+                if (name.equals(agentOptionsName)) {
                     for (Xpp3Dom agentOption : agentOptions.getChildren("agentOption")) {
-                        String value = agentOption.getValue().trim();
+                        String value = assertNotEmptyAndTrim(agentOption.getValue(), "agentOption element must declare a value");
                         if (value.contains("config-output-dir")) {
                             throw new IllegalStateException("config-output-dir cannot be supplied as a custom agent option");
                         }
@@ -203,6 +200,13 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
             }
         }
         return options.toString();
+    }
+
+    private static String assertNotEmptyAndTrim(String input, String message) {
+        if (input == null || input.isEmpty()) {
+            throw new IllegalStateException(message);
+        }
+        return input.trim();
     }
 
     private static void configureAgentForSurefire(Plugin surefirePlugin, String customAgentOptions, String context, String targetDir) {
