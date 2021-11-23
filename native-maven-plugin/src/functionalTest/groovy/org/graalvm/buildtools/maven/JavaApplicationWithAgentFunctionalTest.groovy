@@ -85,7 +85,9 @@ class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctio
         withSample("java-application-with-reflection")
 
         when:
-        mvn '-Pnative', '-Dagent=true', '-DagentOptions=test', 'test'
+        // Run Maven in debug mode (-X) in order to capture the command line arguments
+        // used to launch Surefire with the agent.
+        mvn '-X', '-Pnative', '-Dagent=true', '-DagentOptions=test', 'test'
 
         then:
         outputContains """
@@ -108,10 +110,18 @@ class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctio
             assert file("target/native/agent-output/test/${name}-config.json").exists()
         }
 
+        and:
+        // If custom agent options are processed, the debug output for Surefire
+        // should include the following segments of the agent command line argument.
+        // -agentlib:native-image-agent=config-output-dir=<BUILD_DIR>/target/native/agent-output/test,experimental-class-loader-support,access-filter-file=<BUILD_DIR>/src/test/resources/access-filter.json
+        outputContains '-agentlib:native-image-agent=config-output-dir='
+        outputContains '/target/native/agent-output/test,experimental-class-loader-support,access-filter-file='.replace("/", java.io.File.separator)
+        outputContains '/src/test/resources/access-filter.json'.replace('/', java.io.File.separator)
+
+        and:
         // If the custom access-filter.json is applied, we should not see any warnings about Surefire types.
         // The actual warning would be something like:
         // Warning: Could not resolve org.apache.maven.surefire.junitplatform.JUnitPlatformProvider for reflection configuration. Reason: java.lang.ClassNotFoundException: org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.
-        and:
         outputDoesNotContain 'Warning: Could not resolve org.apache.maven.surefire'
     }
 
