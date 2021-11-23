@@ -76,16 +76,15 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
         return baseDir + File.separator + "test-ids";
     }
 
-    static String buildAgentArgument(String customOptions, String context, String baseDir) {
-        StringJoiner options = new StringJoiner(",");
-        options.add("config-output-dir=" + agentOutputDirectoryFor(context, baseDir));
-        if (!customOptions.isEmpty()) {
-            options.add(customOptions);
+    static String buildAgentArgument(String baseDir, String context, String agentOptions) {
+        String options = "config-output-dir=" + agentOutputDirectoryFor(baseDir, context);
+        if (!agentOptions.isEmpty()) {
+            options += "," + agentOptions;
         }
         return "-agentlib:native-image-agent=" + options;
     }
 
-    private static String agentOutputDirectoryFor(String context, String baseDir) {
+    private static String agentOutputDirectoryFor(String baseDir, String context) {
         return (baseDir + "/native/agent-output/" + context).replace('/', File.separatorChar);
     }
 
@@ -97,13 +96,13 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
             String target = build.getDirectory();
             String testIdsDir = testIdsDirectory(target);
             withPlugin(build, "native-maven-plugin", nativePlugin -> {
-                String customAgentOptions = hasAgent ? getCustomAgentOptions(nativePlugin, getAgentOptionsName(session)) : "";
+                String agentOptions = hasAgent ? getAgentOptions(nativePlugin, getAgentOptionsName(session)) : "";
 
                 // Test configuration
                 withPlugin(build, "maven-surefire-plugin", surefirePlugin -> {
                     configureJunitListener(surefirePlugin, testIdsDir);
                     if (hasAgent) {
-                        configureAgentForSurefire(surefirePlugin, customAgentOptions, "test", target);
+                        configureAgentForSurefire(surefirePlugin, buildAgentArgument(target, "test", agentOptions));
                     }
                 });
 
@@ -120,7 +119,7 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
                                     List<Xpp3Dom> children = new ArrayList<>();
                                     Collections.addAll(children, arrayOfChildren);
                                     Xpp3Dom arg = new Xpp3Dom("argument");
-                                    arg.setValue(buildAgentArgument(customAgentOptions, "exec", target));
+                                    arg.setValue(buildAgentArgument(target, "exec", agentOptions));
                                     children.add(0, arg);
                                     arg = new Xpp3Dom("argument");
                                     arg.setValue("-D" + NATIVEIMAGE_IMAGECODE + "=agent");
@@ -140,7 +139,7 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
                     updatePluginConfiguration(nativePlugin, (exec, configuration) -> {
                         String context = exec.getGoals().stream().anyMatch("test"::equals) ? "test" : "exec";
                         Xpp3Dom agentResourceDirectory = findOrAppend(configuration, "agentResourceDirectory");
-                        agentResourceDirectory.setValue(agentOutputDirectoryFor(context, target));
+                        agentResourceDirectory.setValue(agentOutputDirectoryFor(target, context));
                     });
                 }
             });
@@ -165,9 +164,9 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
                 .ifPresent(consumer);
     }
 
-    private static String getCustomAgentOptions(Plugin plugin, String agentOptionsName) {
+    private static String getAgentOptions(Plugin plugin, String agentOptionsName) {
         // This method parses a configuration block with the following structure, searching
-        // for named config groups whose names match the supplied agentOptionsName.
+        // for agentOptions elements whose names match the supplied agentOptionsName.
         //
         // <configuration>
         //     <agentOptions name="default">
@@ -192,7 +191,7 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
                     for (Xpp3Dom agentOption : agentOptions.getChildren("agentOption")) {
                         String value = assertNotEmptyAndTrim(agentOption.getValue(), "agentOption element must declare a value");
                         if (value.contains("config-output-dir")) {
-                            throw new IllegalStateException("config-output-dir cannot be supplied as a custom agent option");
+                            throw new IllegalStateException("config-output-dir cannot be supplied as an agent option");
                         }
                         options.add(value);
                     }
@@ -209,13 +208,13 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
         return input.trim();
     }
 
-    private static void configureAgentForSurefire(Plugin surefirePlugin, String customAgentOptions, String context, String targetDir) {
+    private static void configureAgentForSurefire(Plugin surefirePlugin, String agentArgument) {
         updatePluginConfiguration(surefirePlugin, (exec, configuration) -> {
             Xpp3Dom systemProperties = findOrAppend(configuration, "systemProperties");
             Xpp3Dom agent = findOrAppend(systemProperties, NATIVEIMAGE_IMAGECODE);
             agent.setValue("agent");
             Xpp3Dom argLine = new Xpp3Dom("argLine");
-            argLine.setValue(buildAgentArgument(customAgentOptions, context, targetDir));
+            argLine.setValue(agentArgument);
             configuration.addChild(argLine);
         });
     }

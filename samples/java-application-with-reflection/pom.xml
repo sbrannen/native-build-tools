@@ -141,7 +141,7 @@
                             <buildArgs>
                                 <buildArg>--no-fallback</buildArg>
                             </buildArgs>
-                            <agentOptions name="default">
+                            <agentOptions name="exec">
                                 <agentOption>experimental-class-loader-support</agentOption>
                             </agentOptions>
                             <agentOptions name="test">
