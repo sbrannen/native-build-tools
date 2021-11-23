@@ -132,12 +132,48 @@ class JavaApplicationWithAgentFunctionalTest extends AbstractGraalVMMavenFunctio
         withSample("java-application-with-reflection")
 
         when:
-        mvn '-Pnative', '-Dagent=true', '-DskipTests=true', '-DskipNativeBuild=true', 'package', 'exec:exec@java-agent'
+        mvn '-X', '-Pnative', '-Dagent=true', '-DskipTests=true', '-DskipNativeBuild=true', 'package', 'exec:exec@java-agent'
 
         then:
         ['jni', 'proxy', 'reflect', 'resource', 'serialization'].each { name ->
             assert file("target/native/agent-output/exec/${name}-config.json").exists()
         }
+
+        and:
+        // If custom agent options are not used, the Maven debug output should include
+        // the following segments of the agent command line argument.
+        // -agentlib:native-image-agent=config-output-dir=<BUILD_DIR>/target/native/agent-output/exec
+        outputContains '-agentlib:native-image-agent=config-output-dir='
+        outputContains '/target/native/agent-output/exec'.replace("/", java.io.File.separator)
+        outputDoesNotContain 'experimental-class-loader-support'
+
+        when:
+        mvn '-Pnative', '-Dagent=true', '-DskipTests=true', 'package', 'exec:exec@native'
+
+        then:
+        outputContains "Hello, native!"
+    }
+
+    def "custom options and generated agent files are used when building native image"() {
+        given:
+        withSample("java-application-with-reflection")
+
+        when:
+        mvn '-X', '-Pnative', '-Dagent=true', '-DagentOptions=exec', '-DskipTests=true', '-DskipNativeBuild=true', 'package', 'exec:exec@java-agent'
+
+        then:
+        ['jni', 'proxy', 'reflect', 'resource', 'serialization'].each { name ->
+            assert file("target/native/agent-output/exec/${name}-config.json").exists()
+        }
+
+        and:
+        // If custom agent options are used, the Maven debug output should include
+        // the following segments of the agent command line argument.
+        // -agentlib:native-image-agent=config-output-dir=<BUILD_DIR>/target/native/agent-output/exec
+        outputContains '-agentlib:native-image-agent=config-output-dir='
+        outputContains '/target/native/agent-output/exec'.replace("/", java.io.File.separator)
+        outputContains 'experimental-class-loader-support'
+        outputDoesNotContain 'access-filter-file='
 
         when:
         mvn '-Pnative', '-Dagent=true', '-DskipTests=true', 'package', 'exec:exec@native'
