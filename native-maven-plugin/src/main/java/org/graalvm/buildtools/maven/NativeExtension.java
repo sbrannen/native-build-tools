@@ -153,7 +153,10 @@ public class NativeExtension extends AbstractMavenLifecycleParticipant {
 
     private static String getAgentOptionsName(MavenSession session) {
         String agentOptionsName = session.getSystemProperties().getProperty("agentOptions");
-        return agentOptionsName != null ? agentOptionsName.trim() : null;
+        if (agentOptionsName == null) {
+        	return null;
+        }
+        return assertNotEmptyAndTrim(agentOptionsName, "agentOptions system property must have a value");
     }
 
     private static void withPlugin(Build build, String artifactId, Consumer<? super Plugin> consumer) {
